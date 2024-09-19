@@ -1,1 +1,125 @@
+# Required libraries
+library(ggplot2)
+library(readr)
+library(forestplot)
+library(forestploter)
+library(grid)
+library(autoReg)
+library(survival)
+
+# Data Import
+cancer_PA <- read.csv("cancer_PA.csv")
+names(cancer_PA)
+
+# Define exposure variable
+cancer_PA$AI_MVPA4 <- ifelse(cancer_PA$AI_MVPA >= 75 & cancer_PA$AI_MVPA < 150, 1,
+                             ifelse(cancer_PA$AI_MVPA >= 150 & cancer_PA$AI_MVPA < 300, 2,
+                                    ifelse(cancer_PA$AI_MVPA >= 300, 3, 0)))
+cancer_PA$AI_MVPA4 <- as.factor(cancer_PA$AI_MVPA4)
+table(cancer_PA$AI_MVPA4)
+
+# Factorize categorical variables
+varstofactor <- c("Sex", "Ethnic_1", "University_degree_baseline", "Smoking.status...Instance.0", 
+                  "Alcohol.drinker.status...Instance.0", "excess_alcohol_men_30_women_20", 
+                  "Diet.Score", "Parental_history_of_CVD", "Parental_history_of_cancer", 
+                  "Medication_Lipid_lowering", "Medication_diabetes_lowering", 
+                  "Medication_hypertension_lowering", "Medication_Hormone_replacement", 
+                  "Medication_Oral_contraceptive", "medication_lipid_hp_dm", 
+                  "Head_and_Neck_cancer_baseline", "oesophagus_cancer_baseline", 
+                  "Stomach_cancer_baseline", "Small_intestine_cancer_baseline", 
+                  "Colorectal_cancer_baseline", "Anal_cancer_baseline", 
+                  "Hepatobiliary_tract_cancer_baseline", "Liver_cancer_baseline", 
+                  "Gallbladder_cancer_ICD10_baseline", "Pancreas_cancer_baseline", 
+                  "Lung_cancer_baseline", "Melanoma_skin_cancer_baseline", 
+                  "Kidney_cancer_baseline", "Bladder_cancer_baseline", "Brain_cancer_baseline", 
+                  "Thyroid_cancer_ICD10_baseline", "Lymphatic_and_haematopoietic_cancer_baseline", 
+                  "Non_Hodgkin_lymphoma_baseline", "Multiple_myeloma_baseline", 
+                  "Leukaemia_baseline", "Breast_cancer_baseline", "Cervical_cancer_baseline", 
+                  "Uterus_cancer_baseline", "Endometrium_cancer_baseline", 
+                  "Ovary_cancer_ICD10_baseline", "Prostate_cancer_ICD10_baseline", 
+                  "Testicular_cancer_baseline", "other_cancer_baseline", 
+                  "Hypertension_FO_prevalent", "non.insulin.dependent.diabetes.mellitus_FO_prevalent", 
+                  "AF_FO_prevalent", "Cardiomyopathy_FO_prevalent", "Dementia_FO_prevalent", 
+                  "end_stage_renal_disease_FO_prevalent", "Dyslipidemia_FO_prevalent", 
+                  "CKD_FO_prevalent", "COPD_FO_prevalent", "Obesity_FO_prevalent", 
+                  "AI_MVPA_150", "AI_MVPA4", "AI_MVPA_4")
+
+cancer_PA[varstofactor] <- lapply(cancer_PA[varstofactor], factor)
+str(cancer_PA)
+names(cancer_PA)
+
+# Cox regression model for Cardiovascular Disease (CVD)
+table(cancer_PA$AI_MVPA4)
+cox_model <- coxph(Surv(Event_CVD_date, Event_CVD) ~ AI_MVPA4 + Age_end_PA + Sex + Ethnic_1 + 
+                   Townsend.deprivation.index.at.recruitment + University_degree_baseline + 
+                   Smoking.status...Instance.0 + excess_alcohol_men_30_women_20 + Diet.Score + 
+                   medication_lipid_hp_dm + AI_sleep + Parental_history_of_CVD + 
+                   Parental_history_of_cancer + year_since_cancerdiag_2, 
+                   data = cancer_PA)
+summary(cox_model)
+autoReg(cox_model)
+cox.zph(fit = cox_model)
+
+# P for trend (CVD)
+cancer_PA <- cancer_PA %>% 
+  group_by(AI_MVPA4) %>% 
+  mutate(MVPAT = median(AI_MVPA)) %>% 
+  ungroup()
+table(cancer_PA$MVPAT)
+
+trend_model <- coxph(Surv(Event_CVD_date, Event_CVD) ~ MVPAT + Age_end_PA + Sex + Ethnic_1 + 
+                     Townsend.deprivation.index.at.recruitment + University_degree_baseline + 
+                     Smoking.status...Instance.0 + excess_alcohol_men_30_women_20 + Diet.Score + 
+                     medication_lipid_hp_dm + AI_sleep + Parental_history_of_CVD + 
+                     Parental_history_of_cancer + year_since_cancerdiag_2, 
+                     data = cancer_PA)
+summary(trend_model)
+autoReg(trend_model)
+
+# Continue with similar models for other outcomes like CAD, HF, Stroke...
+# Read CSV files for each disease outcome
+CVD <- read.csv("cardio-oncology/cancer_PA_CVD/forest/CVD_covariate.csv", sep = ',', header = TRUE)
+CVD$P.value <- ifelse(is.na(CVD$P.value), "", paste0("   ", CVD$P.value))
+
+# Adjust column names and values
+CVD$Cardiovascular.disease[3] <- "0 ≤ MVPA < 150"
+CVD$Cardiovascular.disease[4] <- "75 ≤ MVPA < 150"
+CVD$Cardiovascular.disease[5] <- "150 ≤ MVPA < 300"
+CVD$Cardiovascular.disease[6] <- "MVPA ≥ 300"
+
+colnames(CVD)[2] <- "Events, n(%)"
+CVD$` ` <- paste(rep(" ", 30), collapse = " ")
+CVD <- CVD[, c(1:5, 8, 6:7)]
+colnames(CVD)[6] <- "Adjusted hazard ratio (95% CI)"
+colnames(CVD)[7] <- ""
+
+# Forest plot setup
+tm <- forest_theme(base_size = 12, 
+                   ci_pch = 22, 
+                   ci_col = colorspace::lighten("#34626c", 0.35), 
+                   ci_fill = colorspace::lighten("#34626c", 0.35), 
+                   ci_alpha = 1.0, 
+                   ci_lty = 1, 
+                   ci_lwd = 3, 
+                   refline_lwd = 1, 
+                   refline_lty = "dashed", 
+                   refline_col = "grey20", 
+                   vertline_lwd = 1, 
+                   vertline_lty = "dashed", 
+                   vertline_col = "grey20")
+
+# Generate forest plot
+p <- forest(CVD[, c(1:2, 6:8)], x_trans = "log2", est = CVD$est, lower = CVD$low, 
+            upper = CVD$hi, size = 1, ci_column = 3, ref_line = 1, 
+            xlim = c(0.40, 1.7), ticks_at = c(0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.2), theme = tm)
+p
+
+# Adjust plot layout
+g <- edit_plot(p, row = c(1, 2), gp = gpar(fontface = "bold"))
+i <- forestploter::add_border(g, part = "header")
+i
+
+# Change row height
+i$heights <- rep(unit(12, "mm"), nrow(i))
+i
 
