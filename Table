@@ -1,1 +1,203 @@
+library(tableone)
+library(tidyverse)
+
+cancer_PA <- read.csv("cancer_PA.csv")
+names(cancer_PA)
+
+# Classification of obesity-related cancers
+# Define female breast cancer
+cancer_PA$Sex_Breast <- ifelse(cancer_PA$Breast_cancer_baseline == 1 & cancer_PA$Sex == 0, 1,
+                              ifelse(cancer_PA$Breast_cancer_baseline == 1 & cancer_PA$Sex == 1, 2, 0))  # 1: female, 2: male
+table(cancer_PA$Sex_Breast)
+cancer_PA$Sex_Breast <- factor(cancer_PA$Sex_Breast)  # Female breast cancer
+
+# 1: Obesity-related cancers
+cancer_PA$obesity_cancer <- ifelse(cancer_PA$oesophagus_cancer_baseline == 1 | cancer_PA$Stomach_cancer_baseline == 1 | cancer_PA$Gallbladder_cancer_ICD10_baseline == 1 |
+                                   cancer_PA$Colorectal_cancer_baseline == 1 | cancer_PA$Liver_cancer_baseline == 1 | cancer_PA$Pancreas_cancer_baseline == 1 |
+                                   cancer_PA$Sex_Breast == 1 | cancer_PA$Endometrium_cancer_baseline == 1 | cancer_PA$Ovary_cancer_ICD10_baseline == 1 | cancer_PA$Thyroid_cancer_ICD10_baseline == 1 |
+                                   cancer_PA$Kidney_cancer_baseline == 1 | cancer_PA$Multiple_myeloma_baseline == 1 | cancer_PA$Brain_cancer_baseline == 1, 1, 0)
+table(cancer_PA$obesity_cancer)
+
+# Convert categorical variables to factors
+varstofactor <- c("Sex", "Ethnic_1", "University_degree_baseline", "Smoking.status...Instance.0", "Alcohol.drinker.status...Instance.0",
+                 "excess_alcohol_men_30_women_20", "Diet.Score", "Parental_history_of_CVD", "Parental_history_of_cancer", "obesity_cancer",
+                 "Medication_Lipid_lowering", "Medication_diabetes_lowering", "Medication_hypertension_lowering", "Medication_Hormone_replacement",
+                 "Medication_Oral_contraceptive", "medication_lipid_hp_dm",
+                 "Head_and_Neck_cancer_baseline", "oesophagus_cancer_baseline", "Stomach_cancer_baseline", "Small_intestine_cancer_baseline",
+                 "Colorectal_cancer_baseline", "Anal_cancer_baseline",
+                 "Hepatobiliary_tract_cancer_baseline", "Liver_cancer_baseline", "Gallbladder_cancer_ICD10_baseline", "Pancreas_cancer_baseline",
+                 "Lung_cancer_baseline", "Melanoma_skin_cancer_baseline", "Breast_cancer_baseline", "Cervical_cancer_baseline", "Endometrium_cancer_baseline", "Uterus_cancer_baseline",
+                 "Ovary_cancer_ICD10_baseline", "Prostate_cancer_ICD10_baseline", "Testicular_cancer_baseline",
+                 "Kidney_cancer_baseline", "Bladder_cancer_baseline", "Brain_cancer_baseline", "Thyroid_cancer_ICD10_baseline",
+                 "Lymphatic_and_haematopoietic_cancer_baseline", "Multiple_myeloma_baseline", "Non_Hodgkin_lymphoma_baseline", "Leukaemia_baseline",
+                 "other_cancer_baseline",
+                 "Hypertension_FO_prevalent", "non.insulin.dependent.diabetes.mellitus_FO_prevalent",
+                 "AF_FO_prevalent", "Cardiomyopathy_FO_prevalent", "Dementia_FO_prevalent", "end_stage_renal_disease_FO_prevalent", "Dyslipidemia_FO_prevalent",
+                 "CKD_FO_prevalent", "COPD_FO_prevalent", "Obesity_FO_prevalent",
+                 "AI_MVPA4")
+varstofactor <- unique(varstofactor)
+
+cancer_PA[varstofactor] <- lapply(cancer_PA[varstofactor], factor)
+str(cancer_PA[varstofactor])
+
+# Variables to summarize
+myVars <- c("Age_end_PA", "Sex", "Ethnic_1", "Townsend.deprivation.index.at.recruitment", "University_degree_baseline", "Smoking.status...Instance.0",
+            "excess_alcohol_men_30_women_20", "Diet.Score", "year_since_cancerdiag_2",
+            "Parental_history_of_CVD", "Parental_history_of_cancer", "Medication_diabetes_lowering", "Medication_hypertension_lowering", "Medication_Lipid_lowering",
+            "SBP_PA", "DBP_PA", "BMI", "C.reactive.protein_PA", "eGFR_PA", "HDL_PA", "LDL_PA", "Lpa_PA", "TG_PA", "HbA1c_PA",
+            "AI_wear_time", "AI_sleep", "AI_sedentary", "AI_MVPA",
+            "obesity_cancer",
+            "Head_and_Neck_cancer_baseline", "oesophagus_cancer_baseline", "Stomach_cancer_baseline", "Small_intestine_cancer_baseline",
+            "Colorectal_cancer_baseline", "Anal_cancer_baseline",
+            "Hepatobiliary_tract_cancer_baseline", "Liver_cancer_baseline", "Gallbladder_cancer_ICD10_baseline", "Pancreas_cancer_baseline",
+            "Lung_cancer_baseline", "Melanoma_skin_cancer_baseline", "Breast_cancer_baseline", "Cervical_cancer_baseline", "Uterus_cancer_baseline", "Endometrium_cancer_baseline",
+            "Ovary_cancer_ICD10_baseline", "Prostate_cancer_ICD10_baseline", "Testicular_cancer_baseline",
+            "Kidney_cancer_baseline", "Bladder_cancer_baseline", "Brain_cancer_baseline", "Thyroid_cancer_ICD10_baseline",
+            "Lymphatic_and_haematopoietic_cancer_baseline", "Multiple_myeloma_baseline", "Non_Hodgkin_lymphoma_baseline", "Leukaemia_baseline",
+            "other_cancer_baseline")
+
+# Categorical variables
+catvars <- c("Sex", "Ethnic_1", "University_degree_baseline", "Smoking.status...Instance.0", "obesity_cancer",
+            "Medication_diabetes_lowering", "Medication_hypertension_lowering", "Medication_Lipid_lowering",
+            "Head_and_Neck_cancer_baseline", "oesophagus_cancer_baseline", "Stomach_cancer_baseline", "Small_intestine_cancer_baseline",
+            "Colorectal_cancer_baseline", "Anal_cancer_baseline",
+            "Hepatobiliary_tract_cancer_baseline", "Liver_cancer_baseline", "Gallbladder_cancer_ICD10_baseline", "Pancreas_cancer_baseline",
+            "Lung_cancer_baseline", "Melanoma_skin_cancer_baseline", "Breast_cancer_baseline", "Cervical_cancer_baseline", "Uterus_cancer_baseline", "Endometrium_cancer_baseline",
+            "Ovary_cancer_ICD10_baseline", "Prostate_cancer_ICD10_baseline", "Testicular_cancer_baseline",
+            "Kidney_cancer_baseline", "Bladder_cancer_baseline", "Brain_cancer_baseline", "Thyroid_cancer_ICD10_baseline",
+            "Lymphatic_and_haematopoietic_cancer_baseline", "Multiple_myeloma_baseline", "Non_Hodgkin_lymphoma_baseline", "Leukaemia_baseline",
+            "other_cancer_baseline", "AI_MVPA4")
+
+# Overall statistics
+tab1 <- CreateTableOne(vars = myVars, factorVars = catvars, data = cancer_PA)
+
+tabtotal <- print(tab1, showAllLevels = TRUE, nonnormal = c("Townsend.deprivation.index.at.recruitment", "year_since_cancerdiag_2", 
+                                                           "C.reactive.protein_PA", "Lpa_PA", "AI_wear_time", "AI_sleep", "AI_sedentary", "AI_MVPA"))
+
+# Detailed description and missing values
+summary(tab1)
+
+# Stratified statistics
+tab2 <- CreateTableOne(vars = myVars, strata = "AI_MVPA4", factorVars = catvars, data = cancer_PA)
+
+tab2 <- print(tab2, showAllLevels = TRUE, nonnormal = c("Townsend.deprivation.index.at.recruitment", "year_since_cancerdiag_2", 
+                                                       "C.reactive.protein_PA", "Lpa_PA", "AI_wear_time", "AI_sleep", "AI_sedentary", "AI_MVPA"))
+
+write.csv(tab2, "table1.csv")
+write.csv(tabtotal, "tabtotal.csv")
+
+
+# Required Libraries
+library(tidyverse)
+library(survival)
+library(survminer)
+library(autoReg)
+library(rms)
+library(ggplot2)
+library(scales)
+library(tableone)
+library(tidycmprsk)
+library(readr)
+library(dplyr)
+
+# Load the dataset
+cancer_PA <- read.csv("cancer_PA.csv")
+names(cancer_PA)
+
+# Define exposure categories for AI_MVPA
+cancer_PA$AI_MVPA4 <- ifelse(cancer_PA$AI_MVPA >= 75 & cancer_PA$AI_MVPA < 150, 1,
+                             ifelse(cancer_PA$AI_MVPA >= 150 & cancer_PA$AI_MVPA < 300, 2,
+                                    ifelse(cancer_PA$AI_MVPA >= 300, 3, 0)))
+cancer_PA$AI_MVPA4 <- as.factor(cancer_PA$AI_MVPA4)
+table(cancer_PA$AI_MVPA4)
+
+# Convert categorical variables to factors
+varstofactor <- c("Sex", "Ethnic_1", "University_degree_baseline", "Smoking.status...Instance.0",
+                  "Alcohol.drinker.status...Instance.0", "excess_alcohol_men_30_women_20", 
+                  "Diet.Score", "Parental_history_of_CVD", "Parental_history_of_cancer",
+                  "Medication_Lipid_lowering", "Medication_diabetes_lowering", 
+                  "Medication_hypertension_lowering", "Medication_Hormone_replacement", 
+                  "Medication_Oral_contraceptive", "medication_lipid_hp_dm",
+                  "Head_and_Neck_cancer_baseline", "oesophagus_cancer_baseline", 
+                  "Stomach_cancer_baseline", "Small_intestine_cancer_baseline", 
+                  "Colorectal_cancer_baseline", "Anal_cancer_baseline",
+                  "Hepatobiliary_tract_cancer_baseline", "Liver_cancer_baseline", 
+                  "Gallbladder_cancer_ICD10_baseline", "Pancreas_cancer_baseline", 
+                  "Lung_cancer_baseline", "Melanoma_skin_cancer_baseline", 
+                  "Kidney_cancer_baseline", "Bladder_cancer_baseline", "Brain_cancer_baseline", 
+                  "Thyroid_cancer_ICD10_baseline", "Lymphatic_and_haematopoietic_cancer_baseline", 
+                  "Non_Hodgkin_lymphoma_baseline", "Multiple_myeloma_baseline", 
+                  "Leukaemia_baseline", "Breast_cancer_baseline", "Cervical_cancer_baseline", 
+                  "Uterus_cancer_baseline", "Endometrium_cancer_baseline", 
+                  "Ovary_cancer_ICD10_baseline", "Prostate_cancer_ICD10_baseline", 
+                  "Testicular_cancer_baseline", "other_cancer_baseline", 
+                  "Hypertension_FO_prevalent", "non.insulin.dependent.diabetes.mellitus_FO_prevalent",
+                  "AF_FO_prevalent", "Cardiomyopathy_FO_prevalent", "Dementia_FO_prevalent", 
+                  "end_stage_renal_disease_FO_prevalent", "Dyslipidemia_FO_prevalent", 
+                  "CKD_FO_prevalent", "COPD_FO_prevalent", "Obesity_FO_prevalent", 
+                  "AI_MVPA_150", "AI_MVPA4", "AI_MVPA_4")
+
+cancer_PA[varstofactor] <- lapply(cancer_PA[varstofactor], factor)
+str(cancer_PA)
+
+# Obesity-related vs non-obesity-related cancer classification
+# Define female breast cancer (Sex_Breast: 1 for female, 2 for male)
+cancer_PA$Sex_Breast <- ifelse(cancer_PA$Breast_cancer_baseline == 1 & cancer_PA$Sex == 0, 1,
+                               ifelse(cancer_PA$Breast_cancer_baseline == 1 & cancer_PA$Sex == 1, 2, 0))
+table(cancer_PA$Sex_Breast)
+cancer_PA$Sex_Breast <- factor(cancer_PA$Sex_Breast)
+
+# Define obesity-related cancers
+cancer_PA$obesity_cancer <- ifelse(cancer_PA$oesophagus_cancer_baseline == 1 | cancer_PA$Stomach_cancer_baseline == 1 | 
+                                   cancer_PA$Gallbladder_cancer_ICD10_baseline == 1 | cancer_PA$Colorectal_cancer_baseline == 1 | 
+                                   cancer_PA$Liver_cancer_baseline == 1 | cancer_PA$Pancreas_cancer_baseline == 1 | 
+                                   cancer_PA$Sex_Breast == 1 | cancer_PA$Endometrium_cancer_baseline == 1 | 
+                                   cancer_PA$Ovary_cancer_ICD10_baseline == 1 | cancer_PA$Thyroid_cancer_ICD10_baseline == 1 | 
+                                   cancer_PA$Kidney_cancer_baseline == 1 | cancer_PA$Multiple_myeloma_baseline == 1 | 
+                                   cancer_PA$Brain_cancer_baseline == 1, 1, 0)
+table(cancer_PA$obesity_cancer)
+
+# MVPA CVD Analysis for Non-obesity-related cancers (n=2708)
+cox_non_obesity <- coxph(Surv(Event_CVD_date, Event_CVD) ~ AI_MVPA4, data = cancer_PA[cancer_PA$obesity_cancer == 0,])
+summary(cox_non_obesity)
+autoReg(cox_non_obesity)
+
+# Multivariable Cox model for non-obesity-related cancers
+cox_non_obesity_full <- coxph(Surv(Event_CVD_date, Event_CVD) ~ AI_MVPA4 + Age_end_PA + Sex + Ethnic_1 + 
+                              Townsend.deprivation.index.at.recruitment + University_degree_baseline + 
+                              Smoking.status...Instance.0 + excess_alcohol_men_30_women_20 + Diet.Score + 
+                              medication_lipid_hp_dm + AI_sleep + Parental_history_of_CVD + 
+                              Parental_history_of_cancer + year_since_cancerdiag_2, 
+                              data = cancer_PA[cancer_PA$obesity_cancer == 0,])
+summary(cox_non_obesity_full)
+cox.zph(cox_non_obesity_full)
+autoReg(cox_non_obesity_full)
+
+# MVPA CVD Analysis for Obesity-related cancers (n=3401)
+cox_obesity <- coxph(Surv(Event_CVD_date, Event_CVD) ~ AI_MVPA4, data = cancer_PA[cancer_PA$obesity_cancer == 1,])
+summary(cox_obesity)
+autoReg(cox_obesity)
+
+# Multivariable Cox model for obesity-related cancers
+cox_obesity_full <- coxph(Surv(Event_CVD_date, Event_CVD) ~ AI_MVPA4 + Age_end_PA + Sex + Ethnic_1 + 
+                          Townsend.deprivation.index.at.recruitment + University_degree_baseline + 
+                          Smoking.status...Instance.0 + excess_alcohol_men_30_women_20 + Diet.Score + 
+                          medication_lipid_hp_dm + AI_sleep + Parental_history_of_CVD + 
+                          Parental_history_of_cancer + year_since_cancerdiag_2, 
+                          data = cancer_PA[cancer_PA$obesity_cancer == 1,])
+summary(cox_obesity_full)
+autoReg(cox_obesity_full)
+
+# Analysis per 1 SD change in AI_MVPA for Non-obesity-related cancers
+cancer_PA$AI_MVPA <- scale(cancer_PA$AI_MVPA)
+cox_SD <- coxph(Surv(Event_CVD_date, Event_CVD) ~ AI_MVPA + Age_end_PA + Sex + Ethnic_1 + 
+                Townsend.deprivation.index.at.recruitment + University_degree_baseline + 
+                Smoking.status...Instance.0 + excess_alcohol_men_30_women_20 + Diet.Score + 
+                medication_lipid_hp_dm + AI_sleep + Parental_history_of_CVD + 
+                Parental_history_of_cancer + year_since_cancerdiag_2, 
+                data = cancer_PA[cancer_PA$obesity_cancer == 0,])
+summary(cox_SD)
+autoReg(cox_SD)
+
+# Similarly, continue with analysis for CAD, HF, and Stroke, adjusting for obesity-related and non-obesity-related cancers.
 
